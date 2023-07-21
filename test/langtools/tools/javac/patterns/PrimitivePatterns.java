@@ -26,9 +26,11 @@ import java.util.List;
 /**
  * @test
  * @summary Check behavior of instanceof for primitives
- * @compile -g --enable-preview -source ${jdk.version} PrimitivePatterns.java
- * @run main/othervm --enable-preview PrimitivePatterns
+ * @enablePreview
+ * @compile PrimitivePatterns.java
+ * @run main/othervm PrimitivePatterns
  */
+
 public class PrimitivePatterns {
     public static void main(String[] args) {
         assertEquals(42, primitivePattern());
@@ -60,7 +62,6 @@ public class PrimitivePatterns {
         assertEquals(2,  wideningAndUnboxing());
         assertEquals(2,  wideningAndUnboxingInRecord());
         assertEquals(2,  wideningAndInferredUnboxingInRecord());
-        assertEquals(3,  inferredUnboxingInRecordInEnhancedFor());
     }
 
     public static int primitivePattern() {
@@ -96,7 +97,7 @@ public class PrimitivePatterns {
 
     public static int primitiveSwitch4(float f) {
         return switch (f) {
-            case 0f -> 1;
+            case 0.0f -> 1;
             case Float fi when fi == 1f -> 2;
             case Float fi -> 3;
         };
@@ -285,17 +286,6 @@ public class PrimitivePatterns {
             case Box(float f) -> 3;
             default -> 4;
         };
-    }
-
-    static int inferredUnboxingInRecordInEnhancedFor() {
-        List<Box<Integer>> numbers = List.of(new Box<>(1), new Box<>(2));
-
-        int acc = 0;
-        for(Box(long b) : numbers) {
-            acc += b;
-        }
-
-        return acc;
     }
 
     record R_Integer(Integer x) {}

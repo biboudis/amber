@@ -1,11 +1,17 @@
 /*
  * @test /nodynamiccopyright/
  * @bug 8206986
- * @summary Verify switch over boolean/long/float/double without matching primitive constant expressions is not allowed.
+ * @summary Verify switch over boolean/long/float/double is not allowed.
  * @compile/fail/ref=SwitchNoExtraTypes.out -XDrawDiagnostics SwitchNoExtraTypes.java
  */
 
-public class SwitchExtraTypes {
+public class SwitchNoExtraTypes {
+
+    private void switchBoolean(boolean b) {
+        switch (b) {
+            case true: return ;
+        }
+    }
 
     private void switchLong(long l) {
         switch (l) {

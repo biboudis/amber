@@ -46,7 +46,6 @@ import jdk.javadoc.internal.doclets.toolkit.Content;
 import jdk.javadoc.internal.doclets.toolkit.MemberSummaryWriter;
 import jdk.javadoc.internal.doclets.toolkit.MemberWriter;
 import jdk.javadoc.internal.doclets.toolkit.Resources;
-import jdk.javadoc.internal.doclets.toolkit.taglets.DeprecatedTaglet;
 import jdk.javadoc.internal.doclets.toolkit.util.Utils;
 
 /**
@@ -202,8 +201,9 @@ public abstract class AbstractMemberWriter implements MemberSummaryWriter, Membe
             if (list != null && !list.isEmpty()) {
                 Content typeParameters = ((AbstractExecutableMemberWriter) this)
                         .getTypeParameters((ExecutableElement)member);
-                    code.add(typeParameters);
-                //Code to avoid ugly wrapping in member summary table.
+                code.add(typeParameters);
+                // Add explicit line break between method type parameters and
+                // return type in member summary table to avoid random wrapping.
                 if (typeParameters.charCount() > 10) {
                     code.add(new HtmlTree(TagName.BR));
                 } else {
@@ -212,7 +212,8 @@ public abstract class AbstractMemberWriter implements MemberSummaryWriter, Membe
             }
             code.add(
                     writer.getLink(new HtmlLinkInfo(configuration,
-                            HtmlLinkInfo.Kind.LINK_TYPE_PARAMS, type)));
+                            HtmlLinkInfo.Kind.LINK_TYPE_PARAMS, type)
+                            .addLineBreakOpportunitiesInTypeParameters(true)));
         }
         target.add(code);
     }
@@ -255,8 +256,8 @@ public abstract class AbstractMemberWriter implements MemberSummaryWriter, Membe
      * @param target the content to which the deprecated information will be added.
      */
     protected void addDeprecatedInfo(Element member, Content target) {
-        Content output = (new DeprecatedTaglet()).getAllBlockTagOutput(member,
-            writer.getTagletWriterInstance(false));
+        var t = configuration.tagletManager.getTaglet(DocTree.Kind.DEPRECATED);
+        Content output = t.getAllBlockTagOutput(member, writer.getTagletWriterInstance(false));
         if (!output.isEmpty()) {
             target.add(HtmlTree.DIV(HtmlStyle.deprecationBlock, output));
         }

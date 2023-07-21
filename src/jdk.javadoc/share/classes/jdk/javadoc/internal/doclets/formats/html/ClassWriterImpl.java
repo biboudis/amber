@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ModuleElement;
@@ -41,6 +42,7 @@ import javax.lang.model.util.SimpleElementVisitor8;
 
 import com.sun.source.doctree.DeprecatedTree;
 import com.sun.source.doctree.DocTree;
+
 import jdk.javadoc.internal.doclets.formats.html.Navigation.PageMode;
 import jdk.javadoc.internal.doclets.formats.html.markup.ContentBuilder;
 import jdk.javadoc.internal.doclets.formats.html.markup.Entity;
@@ -51,7 +53,6 @@ import jdk.javadoc.internal.doclets.formats.html.markup.TagName;
 import jdk.javadoc.internal.doclets.formats.html.markup.Text;
 import jdk.javadoc.internal.doclets.toolkit.ClassWriter;
 import jdk.javadoc.internal.doclets.toolkit.Content;
-import jdk.javadoc.internal.doclets.toolkit.taglets.ParamTaglet;
 import jdk.javadoc.internal.doclets.toolkit.util.ClassTree;
 import jdk.javadoc.internal.doclets.toolkit.util.CommentHelper;
 import jdk.javadoc.internal.doclets.toolkit.util.DocFileIOException;
@@ -93,6 +94,11 @@ public class ClassWriterImpl extends SubWriterHolderWriter implements ClassWrite
     }
 
     @Override
+    public Content getOutputInstance() {
+        return new ContentBuilder();
+    }
+
+    @Override
     public Content getHeader(String header) {
         HtmlTree body = getBody(getWindowTitle(utils.getSimpleName(typeElement)));
         var div = HtmlTree.DIV(HtmlStyle.header);
@@ -115,9 +121,8 @@ public class ClassWriterImpl extends SubWriterHolderWriter implements ClassWrite
             div.add(pkgNameDiv);
         }
         HtmlLinkInfo linkInfo = new HtmlLinkInfo(configuration,
-                HtmlLinkInfo.Kind.SHOW_TYPE_PARAMS_AND_BOUNDS, typeElement);
-        //Let's not link to ourselves in the header.
-        linkInfo.linkToSelf = false;
+                HtmlLinkInfo.Kind.SHOW_TYPE_PARAMS_AND_BOUNDS, typeElement)
+                .linkToSelf(false);  // Let's not link to ourselves in the header
         var heading = HtmlTree.HEADING_TITLE(Headings.PAGE_TITLE_HEADING,
                 HtmlStyle.title, Text.of(header));
         heading.add(getTypeParameterLinks(linkInfo));
@@ -174,7 +179,7 @@ public class ClassWriterImpl extends SubWriterHolderWriter implements ClassWrite
     }
 
     @Override
-    protected TypeElement getCurrentPageElement() {
+    public TypeElement getCurrentPageElement() {
         return typeElement;
     }
 
@@ -269,8 +274,8 @@ public class ClassWriterImpl extends SubWriterHolderWriter implements ClassWrite
     @Override
     public void addParamInfo(Content target) {
         if (utils.hasBlockTag(typeElement, DocTree.Kind.PARAM)) {
-            Content paramInfo = (new ParamTaglet()).getAllBlockTagOutput(typeElement,
-                    getTagletWriterInstance(false));
+            var t = configuration.tagletManager.getTaglet(DocTree.Kind.PARAM);
+            Content paramInfo = t.getAllBlockTagOutput(typeElement, getTagletWriterInstance(false));
             if (!paramInfo.isEmpty()) {
                 target.add(HtmlTree.DL(HtmlStyle.notes, paramInfo));
             }
