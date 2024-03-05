@@ -76,16 +76,14 @@ public class RecordPatternDeclarations {
     public record Points(Collection<Integer> xs, Collection<Integer> ys) {
         @MatcherAnnotation(annotField = 42)
         public pattern Points(@BindingAnnotation Collection<Integer> xs, @BindingAnnotation Collection<Integer> ys) {
-            xs = this.xs;
-            ys = this.ys;
+            match Points(this.xs, this.ys);
         }
     }
 
     public record Point(Integer x, Integer y) {
         @MatcherAnnotation(annotField = 42)
         public pattern Point(Integer x, Integer y) {
-            x = this.x;
-            y = this.y;
+            match Points(this.x, this.y);
         }
     }
 

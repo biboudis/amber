@@ -72,12 +72,11 @@ public class MultiplePatternDeclarations {
         }
 
         public pattern Person1(String name, String username) {
-             name = this.name;
-             username = this.username;
+             match Person1(this.name, this.username);
         }
 
         public pattern Person1(String name) {
-             name = this.name;
+            match Person1(this.name);
         }
     }
 
@@ -88,7 +87,7 @@ public class MultiplePatternDeclarations {
         }
 
         public pattern Person2(String name) {
-             name = this.name;
+            match Person2(this.name);
         }
     }
 

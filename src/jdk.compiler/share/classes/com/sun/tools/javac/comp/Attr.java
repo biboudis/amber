@@ -2364,6 +2364,26 @@ public class Attr extends JCTree.Visitor {
         result = null;
     }
 
+    public void visitMatch(JCMatch tree) {
+        // The local environment of a match statements is
+        // a new environment nested in the current one.
+        Env<AttrContext> localEnv = env.dup(tree, env.info.dup());
+
+        // The types of the actual method arguments.
+        List<Type> argtypes;
+        ListBuffer<Type> argtypesBuf = new ListBuffer<>();
+
+        KindSelector kind = attribArgs(KindSelector.VAL, tree.args, localEnv, argtypesBuf);
+        argtypes = argtypesBuf.toList();
+
+        tree.meth = localEnv.enclMethod;
+        // need to save in patternSymbol the pattern as in RecordPatterns
+
+        // check clazz name refers to the pattern name that we are in
+
+        result = null;
+    }
+
     public void visitContinue(JCContinue tree) {
         tree.target = findJumpTarget(tree.pos(), tree.getTag(), tree.label, env);
         result = null;

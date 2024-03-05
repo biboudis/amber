@@ -35,8 +35,7 @@ public class InterfacePatternDeclarations {
     interface Map<K, V> {
         interface Entry<K,V> {
             pattern Entry(K k, V v) {
-                k = this.getKey();
-                v = this.getValue();
+                match Entry(this.getKey(), this.getValue());
             }
 
             K getKey();

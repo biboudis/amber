@@ -86,8 +86,7 @@ public class ClassReaderTestPatternDeclarations extends TestRunner {
                     "public class Point {\n" +
                     "    public Integer x = 0, y = 0;\n" +
                     "    public pattern Point(Integer x, Integer y) {\n" +
-                    "         x = this.x;\n" +
-                    "         y = this.y;\n" +
+                    "         match Point(this.x, this.y);" +
                     "    }\n" +
                     "}");
 

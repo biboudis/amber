@@ -150,6 +150,15 @@ public class TreeCopier<P> implements TreeVisitor<JCTree,P> {
     }
 
     @DefinedBy(Api.COMPILER_TREE)
+    public JCTree visitMatchStatement(MatchStatementTree node, P p) {
+        JCMatch t = (JCMatch) node;
+        JCExpression clazz = copy(t.clazz, p);
+        List<JCExpression> args = copy(t.args, p);
+
+        return M.at(t.pos).Match(clazz, args);
+    }
+
+    @DefinedBy(Api.COMPILER_TREE)
     public JCTree visitCase(CaseTree node, P p) {
         JCCase t = (JCCase) node;
         List<JCCaseLabel> labels = copy(t.labels, p);

@@ -1,10 +1,12 @@
 /*
- * Copyright (c) 2024, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
  * This code is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -21,36 +23,31 @@
  * questions.
  */
 
-import java.util.Objects;
+package com.sun.source.tree;
+
+import jdk.internal.javac.PreviewFeature;
+
+import java.util.List;
 
 /**
- * @test
- * @enablePreview
- * @compile OverloadedPrimitivePatternDeclarations.java
- * @run main OverloadedPrimitivePatternDeclarations
+ * A tree node for a {@code match} statement.
+ *
+ * For example:
+ * <pre>
+ *   match <em>name</em> ( <em>parameters</em> );
+ * </pre>
+ *
+ * @jls XX.XX The match Statement
+ *
+ * @since 23
  */
+public interface MatchStatementTree extends StatementTree {
 
-public class OverloadedPrimitivePatternDeclarations {
-    public static void main(String... args) {
-        assertEquals( 1, testBoxing(new D()));
-    }
-
-    private static int testBoxing(D o) {
-        if (o instanceof D(String data, Integer outI)) {
-            return outI;
-        }
-        return -1;
-    }
-
-    public record D() {
-        public pattern D(String out, int outI) {
-            match D("42", 1);
-        }
-    }
-
-    private static void assertEquals(int expected, int actual) {
-        if (!Objects.equals(expected, actual)) {
-            throw new AssertionError("Expected: " + expected + ", but got: " + actual);
-        }
-    }
+    /**
+     * Returns the expression for this {@code match} statement.
+     *
+     * @return the expression
+     */
+    @PreviewFeature(feature= PreviewFeature.Feature.PATTERN_DECLARATIONS, reflective=true)
+    List<? extends ExpressionTree> getArguments();
 }

@@ -678,6 +678,11 @@ public class Flow {
                 tree.cond != null && !tree.cond.type.isTrue());
         }
 
+        public void visitMatch(JCMatch tree) {
+            scan(tree.args);
+            recordExit(new PendingExit(tree));
+        }
+
         public void visitForeachLoop(JCEnhancedForLoop tree) {
             visitVarDef(tree.var);
             ListBuffer<PendingExit> prevPendingExits = pendingExits;

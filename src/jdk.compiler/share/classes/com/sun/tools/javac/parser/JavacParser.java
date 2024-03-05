@@ -2872,6 +2872,18 @@ public class JavacParser implements Parser {
             dc = token.docComment();
             return List.of(classOrRecordOrInterfaceOrEnumDeclaration(modifiersOpt(), dc));
         case IDENTIFIER:
+            if (token.name() == names.match) {
+                Token next = S.token(1);
+
+                if(next.kind == IDENTIFIER) {
+                    nextToken();
+                    Name name = ident();
+                    int identPos = token.pos;
+                    JCIdent ident = F.at(identPos).Ident(name);
+                    List<JCExpression> args = arguments();
+                    return List.of(toP(F.at(pos).Match(ident, args)));
+                }
+            } else
             if (token.name() == names.yield && allowYieldStatement) {
                 Token next = S.token(1);
                 boolean isYieldStatement;
