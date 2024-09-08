@@ -3522,13 +3522,12 @@ return mh1;
         public MethodHandle unreflectDeconstructor(Deconstructor<?> d) throws IllegalAccessException {
             Class<?> ownerType = d.getDeclaringClass(); // Implicit null-check of d
             try {
-                MethodHandle unreflected = unreflect(
+                return unreflect(
                     ownerType.getDeclaredMethod(
                         SharedSecrets.getJavaLangReflectAccess().getMangledName(d),
                         ownerType
                     )
                 );
-                return unreflected.asType(unreflected.type().changeReturnType(Object.class));
             } catch (NoSuchMethodException | SecurityException ex) {
                 throw new InternalError(ex);
             }
