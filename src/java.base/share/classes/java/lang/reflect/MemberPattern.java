@@ -59,7 +59,7 @@ public abstract sealed class MemberPattern<T> extends Executable permits Deconst
     final int                               slot;
     final Class<?>[]                        parameterTypes;
     final Class<?>[]                        exceptionTypes;
-    ArrayList<PatternBinding>               patternBindings;
+    final ArrayList<PatternBinding>         patternBindings;
 
     final int                               modifiers;
     final int                               patternFlags;
@@ -141,7 +141,7 @@ public abstract sealed class MemberPattern<T> extends Executable permits Deconst
      */
     @Override
     @CallerSensitive
-    public void setAccessible(boolean flag) {
+    public final void setAccessible(boolean flag) {
         AccessibleObject.checkPermission();
         if (flag) {
             checkCanSetAccessible(Reflection.getCallerClass());
