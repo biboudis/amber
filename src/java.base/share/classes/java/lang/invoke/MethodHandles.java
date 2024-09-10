@@ -44,12 +44,11 @@ import java.lang.constant.ConstantDescs;
 import java.lang.invoke.LambdaForm.BasicType;
 import java.lang.invoke.MethodHandleImpl.Intrinsic;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Deconstructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
+import java.lang.reflect.MemberPattern;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.PatternBinding;
 import java.nio.ByteOrder;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
@@ -70,8 +69,6 @@ import static java.lang.invoke.MethodHandleStatics.UNSAFE;
 import static java.lang.invoke.MethodHandleStatics.newIllegalArgumentException;
 import static java.lang.invoke.MethodHandleStatics.newInternalError;
 import static java.lang.invoke.MethodType.methodType;
-
-import java.lang.runtime.Carriers;
 
 /**
  * This class consists exclusively of static methods that operate on or return
@@ -3519,7 +3516,7 @@ return mh1;
          * @throws IllegalAccessException if access checking fails
          * @throws NullPointerException if the argument is null
          */
-        public MethodHandle unreflectDeconstructor(Deconstructor<?> d) throws IllegalAccessException {
+        public MethodHandle unreflectDeconstructor(MemberPattern<?> d) throws IllegalAccessException {
             Class<?> ownerType = d.getDeclaringClass(); // Implicit null-check of d
             try {
                 return unreflect(
