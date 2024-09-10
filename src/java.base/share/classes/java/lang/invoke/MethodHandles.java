@@ -43,12 +43,7 @@ import java.lang.classfile.ClassModel;
 import java.lang.constant.ConstantDescs;
 import java.lang.invoke.LambdaForm.BasicType;
 import java.lang.invoke.MethodHandleImpl.Intrinsic;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Member;
-import java.lang.reflect.MemberPattern;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.*;
 import java.nio.ByteOrder;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
@@ -3516,7 +3511,7 @@ return mh1;
          * @throws IllegalAccessException if access checking fails
          * @throws NullPointerException if the argument is null
          */
-        public MethodHandle unreflectDeconstructor(MemberPattern<?> d) throws IllegalAccessException {
+        public MethodHandle unreflectDeconstructor(Deconstructor<?> d) throws IllegalAccessException {
             Class<?> ownerType = d.getDeclaringClass(); // Implicit null-check of d
             try {
                 return unreflect(
