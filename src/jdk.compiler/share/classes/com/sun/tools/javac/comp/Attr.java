@@ -4321,6 +4321,8 @@ public class Attr extends JCTree.Visitor {
         if (site.tsym.kind == Kind.TYP) {
             int nestedPatternCount = tree.nested.size();
 
+            // Resolve deconstructor call for pattern-use side
+            // If site refers to a record, then synthesize a MT/MethodSymbol with the signature of the implicitely declared pattern declaration
             List<MethodSymbol> patternDeclarations = getPatternDeclarationCandidates(site, nestedPatternCount);
 
             if (patternDeclarations.size() >= 1) {
@@ -4337,6 +4339,7 @@ public class Attr extends JCTree.Visitor {
 
                     resolvedPatternDeclaration = selectBestPatternDeclarationInScope(tree, site, patternDeclarations, patternTypes);
                 } else {
+                    // only one applicable declaration is discovered
                     resolvedPatternDeclaration = patternDeclarations.getFirst();
                 }
 
@@ -4469,7 +4472,7 @@ public class Attr extends JCTree.Visitor {
 
                 MethodType mt = new MethodType(List.nil(), syms.voidType, List.nil(), syms.methodClass);
                 mt.bindingtypes = recordComponents;
-                patternDeclarations = patternDeclarations.prepend(new MethodSymbol(PUBLIC | SYNTHETIC, ((ClassSymbol) site.tsym).name, mt, site.tsym));
+                patternDeclarations = patternDeclarations.prepend(new MethodSymbol(PUBLIC | SYNTHETIC | PATTERN, ((ClassSymbol) site.tsym).name, mt, site.tsym));
             }
         }
 
