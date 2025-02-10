@@ -1934,11 +1934,13 @@ public abstract class Type extends AnnoConstruct implements TypeMirror, PoolCons
 
     public static class PatternType extends Type implements ExecutableType {
         public List<Type> bindingtypes;
+        public List<Type> erasedBindingTypes;
+
         public Type restype;
 
         public PatternType(List<Type> bindingtypes,
                            Type restype, //TODO:
-                          TypeSymbol methodClass) {
+                           TypeSymbol methodClass) {
             super(methodClass, List.nil());
             this.bindingtypes = bindingtypes;
             this.restype = restype;

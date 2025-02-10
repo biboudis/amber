@@ -4659,6 +4659,12 @@ public class Attr extends JCTree.Visitor {
                         .collect(List.collector());
 
                 PatternType pt = new PatternType(recordComponents, syms.voidType, syms.methodClass);
+
+                pt.erasedBindingTypes = ((ClassSymbol) record.type.tsym).getRecordComponents()
+                        .stream()
+                        .map(rc -> types.erasure(rc.type))
+                        .collect(List.collector());
+
                 MethodSymbol synthetized = new MethodSymbol(PUBLIC | SYNTHETIC | PATTERN, ((ClassSymbol) site.tsym).name, pt, site.tsym);
 
                 synthetized.patternFlags.add(PatternFlags.DECONSTRUCTOR);
