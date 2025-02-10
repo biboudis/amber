@@ -2089,13 +2089,9 @@ public abstract class Symbol extends AnnoConstruct implements PoolConstant, Elem
         }
 
         private Name mangledBytecodePatternName(Types types) {
-            List<Type> bindingTypes = ((PatternType) this.type).erasedBindingTypes;
+            List<Type> erasedBindingTypes = ((PatternType) this.type).erasedBindingTypes;
 
-            if (bindingTypes == null) {
-                bindingTypes = bindings().map(b -> b.erasure(types));
-            }
-
-            List<String> parts = bindingTypes.map(type -> {
+            List<String> parts = erasedBindingTypes.map(type -> {
                 var g = new UnSharedSignatureGenerator(types);
                 g.assembleSig(type);
                 String mangled = name.table.names.fromString(BytecodeName.toBytecodeName(g.toName(name.table.names).toString())).toString();
