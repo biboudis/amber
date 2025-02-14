@@ -1208,6 +1208,7 @@ public class Attr extends JCTree.Visitor {
             }
 
             if (m.isDeconstructor()) {
+                //TODO: for instance/named patterns
                 m.patternFlags.add(PatternFlags.DECONSTRUCTOR);
                 if ((tree.mods.flags & Flags.PARTIAL) == 0) {
                     m.patternFlags.add(PatternFlags.TOTAL);
@@ -2472,7 +2473,7 @@ public class Attr extends JCTree.Visitor {
 
     @Override
     public void visitMatchFail(JCMatchFail tree) {
-        if ((env.enclMethod.sym.flags_field & Flags.PARTIAL) == 0) {
+        if (env.enclMethod.sym.isTotalPattern()) {
             log.error(tree.pos(), Errors.UnmarkedPartialDeconstructor);
         }
         result = null;
@@ -4349,23 +4350,42 @@ public class Attr extends JCTree.Visitor {
     @Override
     public void visitRecordPattern(JCRecordPattern tree) {
         Type site;
+        Name deconstructorName;
 
         if (tree.deconstructor == null) {
             log.error(tree.pos(), Errors.DeconstructionPatternVarNotAllowed);
             tree.record = syms.errSymbol;
             site = tree.type = types.createErrorType(tree.record.type);
+            deconstructorName = names.empty;
         } else {
-            Type type = attribType(tree.deconstructor, env);
-            if (type.isRaw() && type.tsym.getTypeParameters().nonEmpty()) {
-                Type inferred = infer.instantiatePatternType(resultInfo.pt, type.tsym);
-                if (inferred == null) {
-                    log.error(tree.pos(), Errors.PatternTypeCannotInfer);
-                } else {
-                    type = inferred;
+            //TODO: if there's a deconstructor and instance pattern with the same name, which one prevails?
+            if (deferredAttr.attribSpeculative(tree.deconstructor, env, new ResultInfo(KindSelector.TYP, Type.noType)).type.hasTag(TypeTag.CLASS)) {
+                Type type = attribType(tree.deconstructor, env);
+                if (type.isRaw() && type.tsym.getTypeParameters().nonEmpty()) {
+                    Type inferred = infer.instantiatePatternType(resultInfo.pt, type.tsym);
+                    if (inferred == null) {
+                        log.error(tree.pos(), Errors.PatternTypeCannotInfer);
+                    } else {
+                        type = inferred;
+                    }
                 }
+                tree.type = tree.deconstructor.type = type;
+                site = types.capture(tree.type);
+                deconstructorName = TreeInfo.name(tree.deconstructor);
+            } else if (tree.deconstructor instanceof JCFieldAccess acc) {
+                Type type = attribType(acc.selected, env);
+                tree.type = tree.deconstructor.type = type; //TODO: better type here?
+                site = type; //TODO: capture?
+                deconstructorName = acc.name;
+            } else if (tree.deconstructor instanceof JCIdent ident) {
+                Type type = pt();
+                tree.type = tree.deconstructor.type = type; //TODO: better type here?
+                site = type; //TODO: capture?
+                deconstructorName = ident.name;
+            } else {
+                //TODO: error recovery
+                throw Assert.error("Not handled.");
             }
-            tree.type = tree.deconstructor.type = type;
-            site = types.capture(tree.type);
         }
 
         List<Type> nestedPatternsTargetTypes = null;
@@ -4373,7 +4393,7 @@ public class Attr extends JCTree.Visitor {
         if (site.tsym.kind == Kind.TYP) {
             int nestedPatternCount = tree.nested.size();
 
-            List<MethodSymbol> candidates = candidatesWithArity(site, nestedPatternCount);
+            List<MethodSymbol> candidates = candidatesWithArity(site, deconstructorName, nestedPatternCount);
 
             if (candidates.size() >= 1) {
                 List<Type> notionalTypes = calculateNotionalTypes(tree);
@@ -4648,9 +4668,9 @@ public class Attr extends JCTree.Visitor {
      * @param nestedPatternCount the number of nested patterns
      * @return                   a list of MethodSymbols
      */
-    private List<MethodSymbol> candidatesWithArity(Type site, int nestedPatternCount) {
+    private List<MethodSymbol> candidatesWithArity(Type site, Name deconstructorName, int nestedPatternCount) {
         var matchersIt = site.tsym.members()
-                .getSymbols(sym -> sym.isPattern() && sym.type.getBindingTypes().size() == nestedPatternCount)
+                .getSymbolsByName(deconstructorName, sym -> sym.isPattern() && sym.type.getBindingTypes().size() == nestedPatternCount)
                 .iterator();
 
         List<MethodSymbol> patternDeclarations = Stream.generate(() -> null)

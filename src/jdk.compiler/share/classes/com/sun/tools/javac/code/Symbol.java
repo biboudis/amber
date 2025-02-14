@@ -480,6 +480,11 @@ public abstract class Symbol extends AnnoConstruct implements PoolConstant, Elem
         return isPattern() && name == owner.name;
     }
 
+    public boolean isTotalPattern() {
+        //TODO: some non-deconstructor patterns can also be total, to be implemented.
+        return isDeconstructor() && (flags() & PARTIAL) == 0;
+    }
+
     public boolean isDynamic() {
         return false;
     }
@@ -2102,7 +2107,7 @@ public abstract class Symbol extends AnnoConstruct implements PoolConstant, Elem
 
             String postFix = String.join(":", parts);
 
-            return name.table.names.fromString(owner.name.toString() + ":" + postFix);
+            return name.table.names.fromString((isDeconstructor() ? owner.name.toString() : name) + ":" + postFix);
         }
 
         static class UnSharedSignatureGenerator extends Types.SignatureGenerator {

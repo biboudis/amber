@@ -4869,7 +4869,7 @@ public class JavacParser implements Parser {
         // Constructor
         if ((token.kind == LPAREN && !isInterface ||
                 isRecord && token.kind == LBRACE) && type.hasTag(IDENT)) {
-            if (isInterface || tk.name() != className) {
+            if ((isInterface || tk.name() != className) && (mods.flags & Flags.PATTERN) == 0) {
                 log.error(DiagnosticFlag.SYNTAX, pos, Errors.InvalidMethDeclRetTypeReq);
             } else if (annosAfterParams.nonEmpty()) {
                 illegal(annosAfterParams.head.pos);
