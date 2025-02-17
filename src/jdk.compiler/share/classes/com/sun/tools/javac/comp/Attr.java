@@ -4369,17 +4369,14 @@ public class Attr extends JCTree.Visitor {
                         type = inferred;
                     }
                 }
-                tree.type = tree.deconstructor.type = type;
                 site = types.capture(tree.type);
                 deconstructorName = TreeInfo.name(tree.deconstructor);
             } else if (tree.deconstructor instanceof JCFieldAccess acc) {
-                Type type = attribType(acc.selected, env);
-                tree.type = tree.deconstructor.type = type; //TODO: better type here?
+                Type type = attribTree(acc.selected, env, new ResultInfo(KindSelector.VAL_TYP, Type.noType));
                 site = type; //TODO: capture?
                 deconstructorName = acc.name;
             } else if (tree.deconstructor instanceof JCIdent ident) {
                 Type type = pt();
-                tree.type = tree.deconstructor.type = type; //TODO: better type here?
                 site = type; //TODO: capture?
                 deconstructorName = ident.name;
             } else {
@@ -4446,6 +4443,12 @@ public class Attr extends JCTree.Visitor {
             }
         } finally {
             localEnv.info.scope.leave();
+        }
+        //TODO: are these types sensible?
+        if (tree.patternDeclaration.getParameters().size() == 1) {
+            tree.type = tree.deconstructor.type = tree.patternDeclaration.getParameters().head.type;
+        } else {
+            tree.type = tree.deconstructor.type = site;
         }
         chk.validate(tree.deconstructor, env, true);
         result = tree.type;

@@ -4853,6 +4853,15 @@ public class JavacParser implements Parser {
                 mods.pos = mods.annotations.head.pos;
         }
 
+        List<JCVariableDecl> matcherCandidate = null;
+
+        if (token.kind == LPAREN) {
+            //TODO: more structural checks
+            matcherCandidate = formalParameters();
+        } else {
+            matcherCandidate = List.nil();
+        }
+
         Token tk = token;
         pos = token.pos;
         JCExpression type;
@@ -4880,7 +4889,7 @@ public class JavacParser implements Parser {
             }
 
             return List.of(methodDeclaratorRest(
-                    pos, mods, null, (mods.flags & Flags.PATTERN) == 0 ? names.init : tk.name(), typarams,
+                    pos, mods, null, (mods.flags & Flags.PATTERN) == 0 ? names.init : tk.name(), typarams, matcherCandidate,
                     isInterface, true, isRecord, dc));
         }
 
@@ -4888,7 +4897,7 @@ public class JavacParser implements Parser {
             mods.flags |= Flags.DEFAULT;
             // pattern declaration in interface
             return List.of(methodDeclaratorRest(
-                    pos, mods, null, (mods.flags & Flags.PATTERN) == 0 ? names.init : tk.name(), typarams,
+                    pos, mods, null, (mods.flags & Flags.PATTERN) == 0 ? names.init : tk.name(), typarams, matcherCandidate, //TODO: untested - needed?
                     isInterface, true, isRecord, dc));
         }
 
@@ -4912,7 +4921,7 @@ public class JavacParser implements Parser {
         // Method
         if (token.kind == LPAREN) {
             return List.of(methodDeclaratorRest(
-                    pos, mods, type, name, typarams,
+                    pos, mods, type, name, typarams, matcherCandidate, //TODO: untested - needed?
                     isInterface, isVoid, false, dc));
         }
 
@@ -5078,6 +5087,10 @@ public class JavacParser implements Parser {
         if (token.name() == names.pattern) {
             Token next = S.token(1);
             var allowPattern = switch (next.kind) {
+                case LPAREN -> {
+                    //XXX: proper disambiguation - matcher candidate
+                    yield true;
+                }
                 case IDENTIFIER -> {
                     Token afterNext = S.token(2);
                     yield afterNext.kind == LPAREN;
@@ -5126,6 +5139,18 @@ public class JavacParser implements Parser {
                               JCExpression type,
                               Name name,
                               List<JCTypeParameter> typarams,
+                              boolean isInterface, boolean isVoid,
+                              boolean isRecord,
+                              Comment dc) {
+        return methodDeclaratorRest(pos, mods, type, name, typarams, List.nil(), isInterface, isVoid, isRecord, dc);
+    }
+
+    protected JCTree methodDeclaratorRest(int pos,
+                              JCModifiers mods,
+                              JCExpression type,
+                              Name name,
+                              List<JCTypeParameter> typarams,
+                              List<JCVariableDecl> matcherCandidateParams,
                               boolean isInterface, boolean isVoid,
                               boolean isRecord,
                               Comment dc) {
@@ -5184,7 +5209,7 @@ public class JavacParser implements Parser {
             boolean isPattern = (mods.flags & PATTERN) != 0;
             JCMethodDecl result =
                     toP(F.at(pos).MethodDef(mods, name, type, typarams,
-                                            receiverParam, isPattern ? List.nil() : params, thrown,
+                                            receiverParam, isPattern ? matcherCandidateParams : params, thrown,
                                             body, defaultValue));
 
             if (isPattern) {

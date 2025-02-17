@@ -53,6 +53,7 @@ import toolbox.ToolBox;
 
 
 //TODO: partiality/totality
+//TODO: parsing of patterns with split receiver and match candidate: the receiver may be an arbitrary expression(?), this does not work currently!
 public class InstancePatterns extends TestRunner {
 
     public static void main(String... args) throws Exception {
@@ -200,6 +201,85 @@ public class InstancePatterns extends TestRunner {
         ClassFile cf = ClassFile.of();
         ClassModel model = cf.parse(classes.resolve("Test.class"));
         MethodModel pattern = model.methods().stream().filter(m -> m.methodName().equalsString("named:I")).findAny().orElseThrow();
+        Optional<PatternAttribute> patternAttribute = pattern.findAttribute(Attributes.pattern());
+        assertTrue("expect not a deconstructor",
+                   !patternAttribute.orElseThrow().patternFlags().contains(AccessFlag.DECONSTRUCTOR));
+    }
+
+    @Test
+    public void testSeparateReceivedMatchCandidate(Path outerBase) throws Exception {
+        Path src = outerBase.resolve("src");
+        //XXX: the receiver and match candidate types must be different so that the test is more powerful(!)
+        tb.writeJavaFiles(src,
+                          """
+                          public class Test {
+                              private final boolean named;
+                              public Test(boolean named) {
+                                  this.named = named;
+                              }
+                              public pattern (MatchCandidate that) do_match(int i, int j) {
+                                  match do_match(named ? 1 : 0, that.named ? 1 : 0);
+                              }
+                              public static void main(String... args) {
+                                  for (MatchCandidate t1 : new MatchCandidate[] {new MatchCandidate(true),
+                                                                                 new MatchCandidate(false)}) {
+                                    for (Test t2 : new Test[] {new Test(true),
+                                                               new Test(false)}) {
+                                        switch (t1) {
+                                            case t2.do_match(var i, var j) ->
+                                                System.out.println("do_match: " + i + ", " + j);
+                                            default ->
+                                                throw new AssertionError("Unexpected!");
+                                        }
+                                    }
+                                  }
+                                  Object objectSelector = new MatchCandidate(true);
+                                  Test receiver = new Test(false);
+                                  switch (objectSelector) {
+                                      case receiver.do_match(var i, var j) ->
+                                        System.out.println("against Object: do_match: " + i + ", " + j);
+                                      default -> throw new AssertionError("Unexpected!");
+                                  }
+                              }
+                              public static class MatchCandidate {
+                                  private final boolean named;
+                                  public MatchCandidate(boolean named) {
+                                      this.named = named;
+                                  }
+                              }
+                          }
+                          """);
+
+        Path classes = outerBase.resolve("classes");
+        Files.createDirectories(classes);
+
+        new JavacTask(tb)
+            .options("--enable-preview", "--source", System.getProperty("java.specification.version"))
+            .outdir(classes.toString())
+            .files(tb.findJavaFiles(src))
+            .run()
+            .writeAll();
+
+        List<String> actualOutput = new JavaTask(tb)
+            .vmOptions("--enable-preview", "--class-path", classes.toString())
+            .className("Test")
+            .run()
+            .getOutputLines(Task.OutputKind.STDOUT);
+        List<String> expectedOutput = List.of(
+            "do_match: 1, 1",
+            "do_match: 0, 1",
+            "do_match: 1, 0",
+            "do_match: 0, 0",
+            "against Object: do_match: 0, 1"
+        );
+
+        if (!expectedOutput.equals(actualOutput)) {
+            throw new AssertionError("Expected: " + expectedOutput +
+                                     ", but got: " + actualOutput);
+        }
+        ClassFile cf = ClassFile.of();
+        ClassModel model = cf.parse(classes.resolve("Test.class"));
+        MethodModel pattern = model.methods().stream().filter(m -> m.methodName().equalsString("do_match:I:I")).findAny().orElseThrow();
         Optional<PatternAttribute> patternAttribute = pattern.findAttribute(Attributes.pattern());
         assertTrue("expect not a deconstructor",
                    !patternAttribute.orElseThrow().patternFlags().contains(AccessFlag.DECONSTRUCTOR));

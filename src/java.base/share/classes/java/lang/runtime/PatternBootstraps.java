@@ -111,6 +111,23 @@ public class PatternBootstraps {
                                          String invocationName,
                                          MethodType invocationType,
                                          String mangledName) {
+        if (invocationType.parameterCount() == 2) {
+            Class<?> receiverType = invocationType.parameterType(0);
+            Class<?> selectorType = invocationType.parameterType(1);
+            if ((!invocationType.returnType().equals(Object.class)))
+                throw new IllegalArgumentException("Illegal invocation type " + invocationType);
+
+            MethodHandle target = null;
+            try {
+                // Attempt 1: discover the pattern declaration
+                target = lookup.findStatic(receiverType, mangledName, MethodType.methodType(Object.class, receiverType, selectorType));
+
+                return new ConstantCallSite(target);
+            } catch (Throwable t) {
+                throw new IllegalArgumentException("Cannot find a pattern");
+            }
+        }
+
         Class<?> selectorType = invocationType.parameterType(0);
         if (invocationType.parameterCount() != 1
             || (!invocationType.returnType().equals(Object.class)))

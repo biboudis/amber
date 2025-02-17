@@ -544,8 +544,19 @@ public class TransPatterns extends TreeTranslator {
                 recordPattern.pos(), env, syms.patternBootstrapsType,
                 names.invokePattern, staticArgTypes, List.nil());
 
+        List<JCExpression> invocationParams = List.of(make.Ident(tempBind));
+        List<Type> invocationParamTypes;
+
+        if (recordPattern.deconstructor instanceof JCFieldAccess acc &&
+            !TreeInfo.isStaticSelector(acc.selected, names)) {
+            invocationParamTypes = List.of(/*receiver:*/acc.selected.type,
+                                           /*match candidate:*/recordPattern.type);
+            invocationParams = invocationParams.prepend(acc.selected);
+        } else {
+            invocationParamTypes = List.of(recordPattern.type);
+        }
         MethodType indyType = new MethodType(
-                List.of(recordPattern.type),
+                invocationParamTypes,
                 syms.objectType,
                 List.nil(),
                 syms.methodClass
@@ -567,7 +578,7 @@ public class TransPatterns extends TreeTranslator {
         qualifier.type = syms.objectType;
         return make.Apply(List.nil(),
                         qualifier,
-                        List.of(make.Ident(tempBind)))
+                        invocationParams)
                 .setType(syms.objectType);
     }
 
