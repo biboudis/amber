@@ -4852,16 +4852,7 @@ public class JavacParser implements Parser {
             if (mods.pos == Position.NOPOS)
                 mods.pos = mods.annotations.head.pos;
         }
-
-        List<JCVariableDecl> matcherCandidate = null;
-
-        if (token.kind == LPAREN) {
-            //TODO: more structural checks
-            matcherCandidate = formalParameters();
-        } else {
-            matcherCandidate = List.nil();
-        }
-
+        List<JCVariableDecl> matcherCandidate = List.nil();
         Token tk = token;
         pos = token.pos;
         JCExpression type;
@@ -4875,10 +4866,26 @@ public class JavacParser implements Parser {
             type = unannotatedType(false);
         }
 
-        // Constructor
+        boolean isPattern = (mods.flags & Flags.PATTERN) != 0;
+        if (isPattern) {
+            if (isVoid) {
+                // error: patterns cannot have void as match candidate
+                type = syntaxError(pos, Errors.Error);
+            }
+
+            JCExpression matchCandidateType = type;
+
+            matcherCandidate = List.of(toP(F.at(pos).VarDef(
+                    F.Modifiers(Flags.PARAMETER | Flags.GENERATED_MEMBER),
+                    names._that,
+                    matchCandidateType,
+                    null)));
+        }
+
+        // Constructor or deconstructor
         if ((token.kind == LPAREN && !isInterface ||
                 isRecord && token.kind == LBRACE) && type.hasTag(IDENT)) {
-            if ((isInterface || tk.name() != className) && (mods.flags & Flags.PATTERN) == 0) {
+            if ((isInterface || tk.name() != className) && !isPattern) {
                 log.error(DiagnosticFlag.SYNTAX, pos, Errors.InvalidMethDeclRetTypeReq);
             } else if (annosAfterParams.nonEmpty()) {
                 illegal(annosAfterParams.head.pos);
@@ -4889,15 +4896,15 @@ public class JavacParser implements Parser {
             }
 
             return List.of(methodDeclaratorRest(
-                    pos, mods, null, (mods.flags & Flags.PATTERN) == 0 ? names.init : tk.name(), typarams, matcherCandidate,
+                    pos, mods, null, isPattern ? tk.name() : names.init, typarams, matcherCandidate,
                     isInterface, true, isRecord, dc));
         }
 
-        if (token.kind == LPAREN && isInterface && type.hasTag(IDENT) && (mods.flags & Flags.PATTERN) != 0) {
+        if (token.kind == LPAREN && isInterface && type.hasTag(IDENT) && isPattern) {
             mods.flags |= Flags.DEFAULT;
             // pattern declaration in interface
             return List.of(methodDeclaratorRest(
-                    pos, mods, null, (mods.flags & Flags.PATTERN) == 0 ? names.init : tk.name(), typarams, matcherCandidate, //TODO: untested - needed?
+                    pos, mods, null, isPattern ? tk.name() : names.init, typarams, matcherCandidate, //TODO: untested - needed?
                     isInterface, true, isRecord, dc));
         }
 
@@ -5087,13 +5094,8 @@ public class JavacParser implements Parser {
         if (token.name() == names.pattern) {
             Token next = S.token(1);
             var allowPattern = switch (next.kind) {
-                case LPAREN -> {
-                    //XXX: proper disambiguation - matcher candidate
-                    yield true;
-                }
                 case IDENTIFIER -> {
-                    Token afterNext = S.token(2);
-                    yield afterNext.kind == LPAREN;
+                    yield S.token(2).kind == LPAREN || S.token(3).kind == LPAREN;
                 }
                 default -> false;
             };

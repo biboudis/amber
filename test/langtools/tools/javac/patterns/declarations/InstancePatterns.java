@@ -76,13 +76,13 @@ public class InstancePatterns extends TestRunner {
                               public Test(boolean named) {
                                   this.named = named;
                               }
-                              public pattern named(int i) {
+                              public pattern Test named(int i) {
                                   if (!named) {
                                       match-fail();
                                   }
                                   match named(1);
                               }
-                              public pattern unnamed(int i) {
+                              public pattern Test unnamed(int i) {
                                   if (named) {
                                       match-fail();
                                   }
@@ -146,13 +146,13 @@ public class InstancePatterns extends TestRunner {
                               public Test(boolean named) {
                                   this.named = named;
                               }
-                              public pattern named(int i) {
+                              public pattern Test named(int i) {
                                   if (!named) {
                                       match-fail();
                                   }
                                   match named(1);
                               }
-                              public pattern unnamed(int i) {
+                              public pattern Test unnamed(int i) {
                                   if (named) {
                                       match-fail();
                                   }
@@ -217,7 +217,7 @@ public class InstancePatterns extends TestRunner {
                               public Test(boolean named) {
                                   this.named = named;
                               }
-                              public pattern (MatchCandidate that) do_match(int i, int j) {
+                              public pattern MatchCandidate do_match(int i, int j) {
                                   match do_match(named ? 1 : 0, that.named ? 1 : 0);
                               }
                               public static void main(String... args) {

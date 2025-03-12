@@ -113,51 +113,42 @@ public class PatternBootstraps {
                                          String mangledName) {
         if (invocationType.parameterCount() == 2) {
             Class<?> receiverType = invocationType.parameterType(0);
-            Class<?> selectorType = invocationType.parameterType(1);
+            Class<?> matchCandidateType = invocationType.parameterType(1);
             if ((!invocationType.returnType().equals(Object.class)))
                 throw new IllegalArgumentException("Illegal invocation type " + invocationType);
 
             MethodHandle target = null;
             try {
                 // Attempt 1: discover the pattern declaration
-                target = lookup.findStatic(receiverType, mangledName, MethodType.methodType(Object.class, receiverType, selectorType));
+                target = lookup.findStatic(receiverType, mangledName, MethodType.methodType(Object.class, receiverType, matchCandidateType));
 
                 return new ConstantCallSite(target);
             } catch (Throwable t) {
-                throw new IllegalArgumentException("Cannot find a pattern");
+                // Attempt 2: synthesize the pattern declaration from the record components
+                if (!matchCandidateType.isRecord() || !receiverType.equals(matchCandidateType) ) {
+                    throw new IllegalArgumentException("Implicit pattern invocation with erroneous match-candidate type or received type");
+                }
+
+                String expectedMangledName = PatternBytecodeName.mangle(matchCandidateType,
+                        Arrays.stream(matchCandidateType.getRecordComponents())
+                                .map(RecordComponent::getType)
+                                .toArray(Class<?>[]::new));
+
+                if (!expectedMangledName.equals(mangledName)) {
+                    throw new IllegalArgumentException("Unexpected pattern at use site: " + mangledName + "(was expecting: " + expectedMangledName + ")");
+                }
+
+                target = MethodHandles.dropArguments(
+                        MethodHandles.insertArguments(StaticHolders.SYNTHETIC_PATTERN, 0, matchCandidateType),
+                        0,
+                        matchCandidateType).asType(invocationType);
+
+                return new ConstantCallSite(target);
             }
         }
 
-        Class<?> selectorType = invocationType.parameterType(0);
-        if (invocationType.parameterCount() != 1
-            || (!invocationType.returnType().equals(Object.class)))
-            throw new IllegalArgumentException("Illegal invocation type " + invocationType);
-
-        MethodHandle target = null;
-        try {
-            // Attempt 1: discover the pattern declaration
-            target = lookup.findStatic(selectorType, mangledName, MethodType.methodType(Object.class, selectorType));
-
-            return new ConstantCallSite(target);
-        } catch (Throwable t) {
-            // Attempt 2: synthesize the pattern declaration from the record components
-            if (!selectorType.isRecord()) {
-                throw new IllegalArgumentException("Cannot find a pattern");
-            }
-
-            String expectedMangledName = PatternBytecodeName.mangle(selectorType,
-                    Arrays.stream(selectorType.getRecordComponents())
-                    .map(RecordComponent::getType)
-                    .toArray(Class<?>[]::new));
-
-            if (!expectedMangledName.equals(mangledName)) {
-                throw new IllegalArgumentException("\nUnexpected pattern at use site: " + mangledName + "\nWas expecting: " + expectedMangledName);
-            }
-
-            target = MethodHandles.insertArguments(StaticHolders.SYNTHETIC_PATTERN, 0, selectorType).asType(invocationType);
-
-            return new ConstantCallSite(target);
-        }
+        // todo: static patterns will expect one parameter
+        throw new IllegalStateException("Pattern Invocation Illegal State");
     }
 
     /**

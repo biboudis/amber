@@ -4350,12 +4350,13 @@ public class Attr extends JCTree.Visitor {
     @Override
     public void visitRecordPattern(JCRecordPattern tree) {
         Type site;
+        Type uncapturedSite;
         Name deconstructorName;
 
         if (tree.deconstructor == null) {
             log.error(tree.pos(), Errors.DeconstructionPatternVarNotAllowed);
             tree.record = syms.errSymbol;
-            site = tree.type = types.createErrorType(tree.record.type);
+            uncapturedSite = site = tree.type = types.createErrorType(tree.record.type);
             deconstructorName = names.empty;
         } else {
             //TODO: if there's a deconstructor and instance pattern with the same name, which one prevails?
@@ -4369,15 +4370,18 @@ public class Attr extends JCTree.Visitor {
                         type = inferred;
                     }
                 }
-                site = types.capture(tree.type);
+                uncapturedSite = type;
+                site = types.capture(type);
                 deconstructorName = TreeInfo.name(tree.deconstructor);
             } else if (tree.deconstructor instanceof JCFieldAccess acc) {
                 Type type = attribTree(acc.selected, env, new ResultInfo(KindSelector.VAL_TYP, Type.noType));
                 site = type; //TODO: capture?
+                uncapturedSite = type;
                 deconstructorName = acc.name;
             } else if (tree.deconstructor instanceof JCIdent ident) {
                 Type type = pt();
                 site = type; //TODO: capture?
+                uncapturedSite = type;
                 deconstructorName = ident.name;
             } else {
                 //TODO: error recovery
@@ -4445,10 +4449,10 @@ public class Attr extends JCTree.Visitor {
             localEnv.info.scope.leave();
         }
         //TODO: are these types sensible?
-        if (tree.patternDeclaration.getParameters().size() == 1) {
+        if (tree.patternDeclaration != null && tree.patternDeclaration.getParameters().size() == 1) { // TODO: improve error recovery
             tree.type = tree.deconstructor.type = tree.patternDeclaration.getParameters().head.type;
         } else {
-            tree.type = tree.deconstructor.type = site;
+            tree.type = tree.deconstructor.type = uncapturedSite;
         }
         chk.validate(tree.deconstructor, env, true);
         result = tree.type;
@@ -4697,11 +4701,11 @@ public class Attr extends JCTree.Visitor {
                         .collect(List.collector());
                 PatternType pt = new PatternType(recordComponents, erasedComponents, syms.voidType, syms.methodClass);
 
-                MethodSymbol synthetized = new MethodSymbol(PUBLIC | SYNTHETIC | PATTERN, ((ClassSymbol) site.tsym).name, pt, site.tsym);
+                MethodSymbol synthesized = new MethodSymbol(PUBLIC | SYNTHETIC | PATTERN, ((ClassSymbol) site.tsym).name, pt, site.tsym);
 
-                synthetized.patternFlags.add(PatternFlags.DECONSTRUCTOR);
-                synthetized.patternFlags.add(PatternFlags.TOTAL);
-                patternDeclarations = patternDeclarations.prepend(synthetized);
+                synthesized.patternFlags.add(PatternFlags.DECONSTRUCTOR);
+                synthesized.patternFlags.add(PatternFlags.TOTAL);
+                patternDeclarations = patternDeclarations.prepend(synthesized);
             }
         }
 
