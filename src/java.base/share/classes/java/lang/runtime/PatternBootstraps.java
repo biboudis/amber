@@ -97,6 +97,7 @@ public class PatternBootstraps {
      * @param invocationType The invocation type of the {@code CallSite} with one parameter,
      *                       a reference type, and an {@code Object} as a return type.
      * @param mangledName    The mangled name of the method declaration that will act as a pattern.
+     * @param needsStatic    Guide the translation
      * @return a {@code CallSite} returning the first matching element as described above
      * @throws NullPointerException     if any argument is {@code null}
      * @throws IllegalArgumentException if the invocation type is not a method type of first parameter of a reference type,
@@ -107,7 +108,8 @@ public class PatternBootstraps {
     public static CallSite invokePattern(MethodHandles.Lookup lookup,
                                          String invocationName,
                                          MethodType invocationType,
-                                         String mangledName) {
+                                         String mangledName,
+                                         int needsStatic) {
         if (invocationType.parameterCount() == 2) {
             Class<?> receiverType = invocationType.parameterType(0);
             Class<?> matchCandidateType = invocationType.parameterType(1);
@@ -116,9 +118,13 @@ public class PatternBootstraps {
 
             MethodHandle target = null;
             try {
-                // Attempt 1: discover the pattern declaration
-                target = lookup.findStatic(receiverType, mangledName, MethodType.methodType(Object.class, receiverType, matchCandidateType));
-
+                if (needsStatic == 1) {
+                    // Attempt 1: discover the pattern declaration
+                    target = lookup.findStatic(receiverType, mangledName, MethodType.methodType(Object.class, receiverType, matchCandidateType));
+                }
+                else {
+                    target = lookup.findVirtual(receiverType, mangledName, MethodType.methodType(Object.class, matchCandidateType));
+                }
                 return new ConstantCallSite(target);
             } catch (Throwable t) {
                 // Attempt 2: synthesize the pattern declaration from the record components
