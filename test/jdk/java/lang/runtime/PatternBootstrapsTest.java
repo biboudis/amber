@@ -54,10 +54,12 @@ import static org.testng.Assert.*;
 public class PatternBootstrapsTest {
 
     public static final MethodHandle INVK_PATTERN;
+    private static final String DINIT = "\\^dinit\\_";
+
     static {
         try {
             INVK_PATTERN = MethodHandles.lookup().findStatic(PatternBootstraps.class, "invokePattern",
-                    MethodType.methodType(CallSite.class, MethodHandles.Lookup.class, String.class, MethodType.class, String.class, int.class));
+                    MethodType.methodType(CallSite.class, MethodHandles.Lookup.class, String.class, MethodType.class, String.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError("Should not happen", e);
@@ -80,13 +82,13 @@ public class PatternBootstrapsTest {
 
     private void testPatternInvocation(Object target, Class<?> targetType, String mangledName, int componentNo, int result) throws Throwable {
         MethodType dtorType = MethodType.methodType(Object.class, targetType, targetType);
-        MethodHandle indy = ((CallSite) INVK_PATTERN.invoke(MethodHandles.lookup(), "", dtorType, mangledName, 1)).dynamicInvoker();
+        MethodHandle indy = ((CallSite) INVK_PATTERN.invoke(MethodHandles.lookup(), "", dtorType, mangledName)).dynamicInvoker();
         List<MethodHandle> components = Carriers.components(MethodType.methodType(Object.class, int.class, int.class));
         assertEquals((int) components.get(componentNo).invokeExact(indy.invoke(target, target)), result);
     }
 
     public void testPatternInvocations() throws Throwable {
-        testPatternInvocation(new R(1, 2), R.class, "R:I:I", 0, 1);
-        testPatternInvocation(new R2(1, 2), R2.class, "R2:I:I", 0, 1);
+        testPatternInvocation(new R(1, 2), R.class, DINIT + ":R:I:I", 0, 1);
+        testPatternInvocation(new R2(1, 2), R2.class, DINIT + ":R2:I:I", 0, 1);
     }
 }

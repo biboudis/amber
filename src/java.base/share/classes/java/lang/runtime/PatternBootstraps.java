@@ -25,23 +25,14 @@
 
 package java.lang.runtime;
 
-import jdk.internal.constant.ConstantUtils;
 import jdk.internal.misc.PreviewFeatures;
 
-import java.lang.Enum.EnumDesc;
-import java.lang.classfile.ClassFile;
-import java.lang.constant.ClassDesc;
-import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.*;
 import java.lang.reflect.*;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.*;
-import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 
-import static java.lang.invoke.MethodHandles.Lookup.ClassOption.NESTMATE;
-import static java.lang.invoke.MethodHandles.Lookup.ClassOption.STRONG;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -60,6 +51,7 @@ public class PatternBootstraps {
     private static final Object SENTINEL = new Object();
     private static final MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
     private static final boolean previewEnabled = PreviewFeatures.isEnabled();
+    private static final String DINIT = "\\^dinit\\_";
 
     private static class StaticHolders {
         private static final MethodHandle SYNTHETIC_PATTERN;
@@ -97,7 +89,6 @@ public class PatternBootstraps {
      * @param invocationType The invocation type of the {@code CallSite} with one parameter,
      *                       a reference type, and an {@code Object} as a return type.
      * @param mangledName    The mangled name of the method declaration that will act as a pattern.
-     * @param needsStatic    Guide the translation
      * @return a {@code CallSite} returning the first matching element as described above
      * @throws NullPointerException     if any argument is {@code null}
      * @throws IllegalArgumentException if the invocation type is not a method type of first parameter of a reference type,
@@ -108,72 +99,101 @@ public class PatternBootstraps {
     public static CallSite invokePattern(MethodHandles.Lookup lookup,
                                          String invocationName,
                                          MethodType invocationType,
-                                         String mangledName,
-                                         int needsStatic) {
-        if (invocationType.parameterCount() == 2) {
-            Class<?> receiverType = invocationType.parameterType(0);
-            Class<?> matchCandidateType = invocationType.parameterType(1);
-            if ((!invocationType.returnType().equals(Object.class)))
-                throw new IllegalArgumentException("Illegal invocation type " + invocationType);
+                                         String mangledName) {
+        MethodHandle target = null;
 
-            MethodHandle target = null;
-            try {
-                if (needsStatic == 1) {
-                    // Attempt 1: discover the pattern declaration
+        switch (detectPatternUseSite(invocationType, mangledName)) {
+            case Deconstructor -> {
+                Class<?> receiverType = invocationType.parameterType(0);
+                Class<?> matchCandidateType = invocationType.parameterType(1);
+                try {
+                    // Attempt 1: discover the deconstructor
                     target = lookup.findStatic(receiverType, mangledName, MethodType.methodType(Object.class, receiverType, matchCandidateType));
+                } catch (Throwable t) {
+                    // Attempt 2: synthesize the pattern declaration from the record components
+                    if (!matchCandidateType.isRecord() || !receiverType.equals(matchCandidateType)) {
+                        throw new IllegalArgumentException("Implicit deconstructor invocation with erroneous match-candidate type or received type");
+                    }
+
+                    String expectedMangledName = DINIT + ':' + PatternBytecodeName.mangle(matchCandidateType,
+                            Arrays.stream(matchCandidateType.getRecordComponents())
+                                    .map(RecordComponent::getType)
+                                    .toArray(Class<?>[]::new));
+
+                    if (!expectedMangledName.equals(mangledName)) {
+                        throw new IllegalArgumentException("Unexpected deconstructor at use site: " + mangledName + "(was expecting: " + expectedMangledName + ")");
+                    }
+
+                    target = calculateSyntheticPatternMT(invocationType, matchCandidateType);
                 }
-                else {
+            }
+            case InstancePattern -> {
+                Class<?> receiverType = invocationType.parameterType(0);
+                Class<?> matchCandidateType = invocationType.parameterType(1);
+                try {
                     target = lookup.findVirtual(receiverType, mangledName, MethodType.methodType(Object.class, matchCandidateType));
                 }
-                return new ConstantCallSite(target);
-            } catch (Throwable t) {
-                // Attempt 2: synthesize the pattern declaration from the record components
-                if (!matchCandidateType.isRecord() || !receiverType.equals(matchCandidateType)) {
-                    throw new IllegalArgumentException("Implicit pattern invocation with erroneous match-candidate type or received type");
+                catch (Throwable t) {
+                    throw new IllegalArgumentException("Unexpected instance pattern");
                 }
-
-                String expectedMangledName = PatternBytecodeName.mangle(matchCandidateType,
-                        Arrays.stream(matchCandidateType.getRecordComponents())
-                                .map(RecordComponent::getType)
-                                .toArray(Class<?>[]::new));
-
-                if (!expectedMangledName.equals(mangledName)) {
-                    throw new IllegalArgumentException("Unexpected pattern at use site: " + mangledName + "(was expecting: " + expectedMangledName + ")");
+            }
+            case StaticPattern -> {
+                Class<?> matchCandidateType = invocationType.parameterType(0);
+                try {
+                    target = lookup.findStatic(matchCandidateType, mangledName, MethodType.methodType(Object.class, matchCandidateType));
                 }
-
-                @SuppressWarnings("removal")
-                final RecordComponent[] components = AccessController.doPrivileged(
-                        (PrivilegedAction<RecordComponent[]>) matchCandidateType::getRecordComponents);
-
-                Method[] accessors = Arrays.stream(components).map(c -> {
-                    Method accessor = c.getAccessor();
-                    accessor.setAccessible(true);
-                    return accessor;
-                }).toArray(Method[]::new);
-
-                Class<?>[] ctypes = Arrays.stream(components).map(c -> c.getType()).toArray(Class<?>[]::new);
-
-                Carriers.CarrierElements carrierElements = Carriers.CarrierFactory.of(ctypes);
-
-                MethodHandle initializingConstructor = carrierElements.initializingConstructor();
-
-                MethodHandle carrierCreator = initializingConstructor.asSpreader(Object[].class, ctypes.length);
-
-                target =
-                        MethodHandles.dropArguments(
-                                MethodHandles.insertArguments(StaticHolders.SYNTHETIC_PATTERN,
-                                        0,
-                                        accessors,
-                                        carrierCreator),
-                                1,
-                                Object.class).asType(invocationType);
-
-                return new ConstantCallSite(target);
+                catch (Throwable t) {
+                    throw new IllegalArgumentException("Unexpected static pattern");
+                }
             }
         }
 
-        // todo: static patterns will expect one parameter
-        throw new IllegalStateException("Pattern Invocation Illegal State");
+        return new ConstantCallSite(target);
+    }
+
+    private static MethodHandle calculateSyntheticPatternMT(MethodType invocationType, Class<?> matchCandidateType) {
+        @SuppressWarnings("removal") final RecordComponent[] components = AccessController.doPrivileged(
+                (PrivilegedAction<RecordComponent[]>) matchCandidateType::getRecordComponents);
+
+        Method[] accessors = Arrays.stream(components).map(c -> {
+            Method accessor = c.getAccessor();
+            accessor.setAccessible(true);
+            return accessor;
+        }).toArray(Method[]::new);
+
+        Class<?>[] ctypes = Arrays.stream(components).map(c -> c.getType()).toArray(Class<?>[]::new);
+
+        Carriers.CarrierElements carrierElements = Carriers.CarrierFactory.of(ctypes);
+
+        MethodHandle initializingConstructor = carrierElements.initializingConstructor();
+
+        MethodHandle carrierCreator = initializingConstructor.asSpreader(Object[].class, ctypes.length);
+
+        return MethodHandles.dropArguments(
+                        MethodHandles.insertArguments(StaticHolders.SYNTHETIC_PATTERN,
+                                0,
+                                accessors,
+                                carrierCreator),
+                        1,
+                        Object.class).asType(invocationType);
+    }
+
+    enum PatternUseSite {
+        Deconstructor,
+        InstancePattern,
+        StaticPattern
+    }
+    static PatternUseSite detectPatternUseSite(MethodType invocationType,
+                                               String mangledName) {
+        if (invocationType.parameterCount() == 2) {
+            return mangledName.startsWith(DINIT + ':') ? PatternUseSite.Deconstructor : PatternUseSite.InstancePattern;
+        } else if (invocationType.parameterCount() == 1) {
+            return PatternUseSite.StaticPattern;
+        } else if ((!invocationType.returnType().equals(Object.class))) {
+            throw new IllegalArgumentException("Illegal return type: " + invocationType);
+        } else {
+            throw new IllegalArgumentException("Illegal invocation type " + invocationType);
+        }
     }
 
     /**

@@ -538,8 +538,7 @@ public class TransPatterns extends TreeTranslator {
         List<Type> staticArgTypes = List.of(syms.methodHandleLookupType,
                 syms.stringType,
                 syms.methodTypeType,
-                syms.stringType,
-                syms.intType);
+                syms.stringType);
 
         MethodSymbol bsm = rs.resolveInternalMethod(
                 recordPattern.pos(), env, syms.patternBootstrapsType,
@@ -547,7 +546,7 @@ public class TransPatterns extends TreeTranslator {
 
         List<JCExpression> invocationParams = List.of(make.Ident(matchCandidate));
         List<Type> invocationParamTypes;
-        if (true /*is instance pattern*/) {
+        if (true) {
             if (recordPattern.deconstructor instanceof JCFieldAccess acc &&
                     !TreeInfo.isStaticSelector(acc.selected, names)) {
                 invocationParamTypes = List.of(/*receiver:*/acc.selected.type,
@@ -570,10 +569,8 @@ public class TransPatterns extends TreeTranslator {
         );
 
         String mangledName = ((MethodSymbol)(recordPattern.patternDeclaration.baseSymbol())).externalName(types).toString();
-        int needsStatic = recordPattern.patternDeclaration.baseSymbol().isStatic() || recordPattern.patternDeclaration.baseSymbol().isDeconstructor() ? 1: 0;
         LoadableConstant[] staticArgValues = new LoadableConstant[] {
-                LoadableConstant.String(mangledName),
-                LoadableConstant.Int(needsStatic)
+                LoadableConstant.String(mangledName)
         };
 
         DynamicMethodSymbol dynSym = new DynamicMethodSymbol(names.invokePattern,
