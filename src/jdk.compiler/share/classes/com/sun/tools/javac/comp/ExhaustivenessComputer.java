@@ -79,7 +79,7 @@ public class ExhaustivenessComputer {
         infer = Infer.instance(context);
     }
 
-    public boolean exhausts(JCExpression selector, List<JCCase> cases) {
+    public boolean exhausts(JCDiagnostic.DiagnosticPosition pos, Type selectorType, List<JCCase> cases) {
         Set<PatternDescription> patternSet = new HashSet<>();
         Map<Symbol, Set<Symbol>> enum2Constants = new HashMap<>();
         Set<Object> booleanLiterals = new HashSet<>(Set.of(0, 1));
@@ -89,11 +89,11 @@ public class ExhaustivenessComputer {
 
             for (var l : c.labels) {
                 if (l instanceof JCPatternCaseLabel patternLabel) {
-                    for (Type component : components(selector.type)) {
+                    for (Type component : components(selectorType)) {
                         patternSet.add(makePatternDescription(component, patternLabel.pat));
                     }
                 } else if (l instanceof JCConstantCaseLabel constantLabel) {
-                    if (types.unboxedTypeOrType(selector.type).hasTag(TypeTag.BOOLEAN)) {
+                    if (types.unboxedTypeOrType(selectorType).hasTag(TypeTag.BOOLEAN)) {
                         Object value = ((JCLiteral) constantLabel.expr).value;
                         booleanLiterals.remove(value);
                     } else {
@@ -112,7 +112,7 @@ public class ExhaustivenessComputer {
             }
         }
 
-        if (types.unboxedTypeOrType(selector.type).hasTag(TypeTag.BOOLEAN) && booleanLiterals.isEmpty()) {
+        if (types.unboxedTypeOrType(selectorType).hasTag(TypeTag.BOOLEAN) && booleanLiterals.isEmpty()) {
             return true;
         }
 
@@ -128,12 +128,12 @@ public class ExhaustivenessComputer {
             boolean repeat = true;
             while (repeat) {
                 Set<PatternDescription> updatedPatterns;
-                updatedPatterns = reduceBindingPatterns(selector.type, patterns);
+                updatedPatterns = reduceBindingPatterns(selectorType, patterns);
                 updatedPatterns = reduceNestedPatterns(updatedPatterns, useHashes);
                 updatedPatterns = reduceRecordPatterns(updatedPatterns);
                 updatedPatterns = removeCoveredRecordPatterns(updatedPatterns);
                 repeat = !updatedPatterns.equals(patterns);
-                if (checkCovered(selector.type, patterns)) {
+                if (checkCovered(selectorType, patterns)) {
                     return true;
                 }
                 if (!repeat) {
@@ -153,9 +153,9 @@ public class ExhaustivenessComputer {
                 }
                 patterns = updatedPatterns;
             }
-            return checkCovered(selector.type, patterns);
+            return checkCovered(selectorType, patterns);
         } catch (CompletionFailure cf) {
-            chk.completionError(selector.pos(), cf);
+            chk.completionError(pos, cf);
             return true; //error recovery
         } finally {
             isSubtypeCache.clear();
