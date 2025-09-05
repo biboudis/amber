@@ -198,6 +198,7 @@ public class JavacParser implements Parser {
         this.allowYieldStatement = Feature.SWITCH_EXPRESSION.allowedInSource(source);
         this.allowRecords = Feature.RECORDS.allowedInSource(source);
         this.allowSealedTypes = Feature.SEALED_CLASSES.allowedInSource(source);
+        this.allowMatchStatements = Feature.MATCH_STATEMENTS.allowedInSource(source);
         updateUnexpectedTopLevelDefinitionStartError(false);
     }
 
@@ -222,6 +223,7 @@ public class JavacParser implements Parser {
         this.allowYieldStatement = Feature.SWITCH_EXPRESSION.allowedInSource(source);
         this.allowRecords = Feature.RECORDS.allowedInSource(source);
         this.allowSealedTypes = Feature.SEALED_CLASSES.allowedInSource(source);
+        this.allowMatchStatements = Feature.MATCH_STATEMENTS.allowedInSource(source);
         updateUnexpectedTopLevelDefinitionStartError(false);
     }
 
@@ -263,6 +265,10 @@ public class JavacParser implements Parser {
     /** Switch: are sealed types allowed in this source level?
      */
     boolean allowSealedTypes;
+
+    /** Are match statements allowed in this source level?
+     */
+    boolean allowMatchStatements;
 
     /** The type of the method receiver, as specified by a first "this" parameter.
      */
@@ -3032,6 +3038,27 @@ public class JavacParser implements Parser {
         dc = token.docComment();
         if (isRecordStart() && allowRecords) {
             return List.of(recordDeclaration(F.at(pos).Modifiers(0), dc));
+        } else if (isMatchStatementStart() && allowMatchStatements) {
+            nextToken();
+            int patternPos = token.pos;
+            JCModifiers mods = optFinal(0);
+            JCExpression type = unannotatedType(false);
+
+            JCPattern pattern = parsePattern(patternPos, mods, type, false, false);
+
+            if (pattern.getTag() != RECORDPATTERN) {
+                log.error(token.pos, Errors.NotADeconstructionPatternForMatchStatement(pattern.toString()));
+
+                return List.of(toP(F.at(pos).Exec(F.at(patternPos).Erroneous())));
+            } else {
+                accept(EQ);
+
+                JCExpression expr = parseExpression();
+
+                accept(SEMI);
+
+                return List.of(toP(F.at(pos).Match(pattern, expr)));
+            }
         } else {
             Token prevToken = token;
             JCExpression t = term(EXPR | TYPE);
@@ -3105,25 +3132,43 @@ public class JavacParser implements Parser {
         case FOR: {
             nextToken();
             accept(LPAREN);
-            List<JCStatement> inits = token.kind == SEMI ? List.nil() : forInit();
-            if (inits.length() == 1 &&
-                inits.head.hasTag(VARDEF) &&
-                ((JCVariableDecl) inits.head).init == null &&
-                token.kind == COLON) {
-                JCVariableDecl var = (JCVariableDecl)inits.head;
+            if (S.token().kind == IDENTIFIER && S.token().name() == names.match) {
+                nextToken();
+                int patternPos = token.pos;
+                JCModifiers mods = optFinal(0);
+                JCExpression type = unannotatedType(false);
+
+                JCTree pattern = parsePattern(patternPos, mods, type, false, false);
+
+                if (pattern != null) {
+                    checkSourceLevel(token.pos, Feature.MATCH_STATEMENTS);
+                }
                 accept(COLON);
                 JCExpression expr = parseExpression();
                 accept(RPAREN);
                 JCStatement body = parseStatementAsBlock();
-                return F.at(pos).ForeachLoop(var, expr, body);
+                return F.at(pos).ForeachLoop(pattern, expr, body);
             } else {
-                accept(SEMI);
-                JCExpression cond = token.kind == SEMI ? null : parseExpression();
-                accept(SEMI);
-                List<JCExpressionStatement> steps = token.kind == RPAREN ? List.nil() : forUpdate();
-                accept(RPAREN);
-                JCStatement body = parseStatementAsBlock();
-                return F.at(pos).ForLoop(inits, cond, steps, body);
+                List<JCStatement> inits = token.kind == SEMI ? List.nil() : forInit();
+                if (inits.length() == 1 &&
+                        inits.head.hasTag(VARDEF) &&
+                        ((JCVariableDecl) inits.head).init == null &&
+                        token.kind == COLON) {
+                    JCVariableDecl var = (JCVariableDecl) inits.head;
+                    accept(COLON);
+                    JCExpression expr = parseExpression();
+                    accept(RPAREN);
+                    JCStatement body = parseStatementAsBlock();
+                    return F.at(pos).ForeachLoop(var, expr, body);
+                } else {
+                    accept(SEMI);
+                    JCExpression cond = token.kind == SEMI ? null : parseExpression();
+                    accept(SEMI);
+                    List<JCExpressionStatement> steps = token.kind == RPAREN ? List.nil() : forUpdate();
+                    accept(RPAREN);
+                    JCStatement body = parseStatementAsBlock();
+                    return F.at(pos).ForLoop(inits, cond, steps, body);
+                }
             }
         }
         case WHILE: {
@@ -3237,6 +3282,100 @@ public class JavacParser implements Parser {
         default:
             Assert.error();
             return null;
+        }
+    }
+
+    protected boolean isMatchStatementStart() {
+        if (token.kind == IDENTIFIER && token.name() == names.match && S.token(1).kind == IDENTIFIER) {
+            checkSourceLevel(Feature.MATCH_STATEMENTS);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private enum ForInitResult {
+        LocalVarDecl,
+        RecordPattern
+    }
+
+    @SuppressWarnings("fallthrough")
+    ForInitResult analyzeForInit() {
+        boolean inType = false;
+        boolean inSelectionAndParenthesis = false;
+        int typeParameterPossibleStart = -1;
+        outer: for (int lookahead = 0; ; lookahead++) {
+            TokenKind tk = S.token(lookahead).kind;
+            switch (tk) {
+                case DOT:
+                    if (inType) break; // in qualified type
+                case COMMA:
+                    typeParameterPossibleStart = lookahead;
+                    break;
+                case QUES:
+                    // "?" only allowed in a type parameter position - otherwise it's an expression
+                    if (typeParameterPossibleStart == lookahead - 1) break;
+                    else return ForInitResult.LocalVarDecl;
+                case EXTENDS: case SUPER: case AMP:
+                case GTGTGT: case GTGT: case GT:
+                case FINAL: case ELLIPSIS:
+                    break;
+                case BYTE: case SHORT: case INT: case LONG: case FLOAT:
+                case DOUBLE: case BOOLEAN: case CHAR: case VOID:
+                    if (peekToken(lookahead, IDENTIFIER)) {
+                        return inSelectionAndParenthesis ? ForInitResult.RecordPattern
+                                : ForInitResult.LocalVarDecl;
+                    }
+                    break;
+                case LPAREN:
+                    if (lookahead != 0 && inType) {
+                        inSelectionAndParenthesis = true;
+                        inType = false;
+                    }
+                    break;
+                case RPAREN:
+                    // a method call in the init part or a record pattern?
+                    if (inSelectionAndParenthesis) {
+                        if (peekToken(lookahead, DOT)  ||
+                                peekToken(lookahead, SEMI) ||
+                                peekToken(lookahead, ARROW)) {
+                            return ForInitResult.LocalVarDecl;
+                        }
+                        else if(peekToken(lookahead, COLON)) {
+                            return ForInitResult.RecordPattern;
+                        }
+                        break;
+                    }
+                case UNDERSCORE:
+                case ASSERT:
+                case ENUM:
+                case IDENTIFIER:
+                    if (lookahead == 0) {
+                        inType = true;
+                    }
+                    break;
+                case MONKEYS_AT: {
+                    int prevLookahead = lookahead;
+                    lookahead = skipAnnotation(lookahead);
+                    if (typeParameterPossibleStart == prevLookahead - 1) {
+                        // move possible start of type param after the anno
+                        typeParameterPossibleStart = lookahead;
+                    }
+                    break;
+                }
+                case LBRACKET:
+                    if (peekToken(lookahead, RBRACKET)) {
+                        return inSelectionAndParenthesis ? ForInitResult.RecordPattern
+                                : ForInitResult.LocalVarDecl;
+                    }
+                    return ForInitResult.LocalVarDecl;
+                case LT:
+                    typeParameterPossibleStart = lookahead;
+                    break;
+                default:
+                    //this includes EOF
+                    return ForInitResult.LocalVarDecl;
+            }
         }
     }
 
