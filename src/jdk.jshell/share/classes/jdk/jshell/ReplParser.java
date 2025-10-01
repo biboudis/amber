@@ -190,7 +190,7 @@ class ReplParser extends JavacParser {
                 } else {
                     int pos = token.pos;
 
-                    if (isMatchStatementStart()) {
+                    if (analyzePatternAssignment() == LocalVariableDeclOrRecordPattern.RecordPattern) {
                         return List.<JCTree>of(parseStatement());
                     }
 

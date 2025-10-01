@@ -10,15 +10,15 @@ import java.util.List;
 public class MatchStatementsErrors {
 
     static void exhaustivity_error1(Object point) {
-        match Point(var x, var y) = point;
+        Point(var x, var y) = point;
     }
 
     static void exhaustivity_error2(OPoint opoint) {
-        match Point(var x, var y) = opoint;
+        Point(var x, var y) = opoint;
     }
 
     static void parsing_error(Object point) {
-        match Point p = point;
+        Point p = point;
     }
 
     sealed interface IPoint permits Point {}

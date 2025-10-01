@@ -40,7 +40,7 @@ public class MatchStatementsTest extends KullaTesting {
     public void testMatchStatement() {
         assertEval("record Point(int a) {}");
         assertEquals(varKey(assertEval("Point p = new Point(42);")).name(), "p");
-        assertEval("match Point(int b) = p;");
+        assertEval("Point(int b) = p;");
 //        assertEval("b + 1", "43"); // TODO
     }
 

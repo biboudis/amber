@@ -1,7 +1,5 @@
-MatchStatementsErrors.java:21:23: compiler.err.not.a.deconstruction.pattern.for.match.statement: Point p
-MatchStatementsErrors.java:17:37: compiler.err.prob.found.req: (compiler.misc.inconvertible.types: MatchStatementsErrors.OPoint, MatchStatementsErrors.Point)
+MatchStatementsErrors.java:17:31: compiler.err.prob.found.req: (compiler.misc.inconvertible.types: MatchStatementsErrors.OPoint, MatchStatementsErrors.Point)
+MatchStatementsErrors.java:21:19: compiler.err.prob.found.req: (compiler.misc.inconvertible.types: java.lang.Object, MatchStatementsErrors.Point)
 MatchStatementsErrors.java:13:9: compiler.err.not.exhaustive.statement
 MatchStatementsErrors.java:17:9: compiler.err.not.exhaustive.statement
-- compiler.note.preview.filename: MatchStatementsErrors.java, DEFAULT
-- compiler.note.preview.recompile
 4 errors

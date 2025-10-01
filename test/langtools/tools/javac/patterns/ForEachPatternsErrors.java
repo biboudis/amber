@@ -9,25 +9,25 @@ import java.util.List;
 public class ForEachPatternsErrors {
 
     static void exhaustivity_error1(List<Object> points) {
-        for (match Point(var x, var y): points) {
+        for (Point(var x, var y): points) {
             System.out.println();
         }
     }
 
     static void exhaustivity_error2(List points) {
-        for (match Point(var x, var y): points) {
+        for (Point(var x, var y): points) {
             System.out.println();
         }
     }
 
     static void exhaustivity_error3(List<OPoint> opoints) {
-        for (match OPoint(String s, String t) : opoints) {
+        for (OPoint(String s, String t) : opoints) {
             System.out.println(s);
         }
     }
 
     static void exhaustivity_error4(List<?> f) {
-        for (match Rec(var x): f){
+        for (Rec(var x): f){
         }
     }
 

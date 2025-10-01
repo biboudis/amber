@@ -3038,27 +3038,18 @@ public class JavacParser implements Parser {
         dc = token.docComment();
         if (isRecordStart() && allowRecords) {
             return List.of(recordDeclaration(F.at(pos).Modifiers(0), dc));
-        } else if (isMatchStatementStart() && allowMatchStatements) {
-            nextToken();
+        } else if (analyzePatternAssignment() == LocalVariableDeclOrRecordPattern.RecordPattern && allowMatchStatements) {
             int patternPos = token.pos;
             JCModifiers mods = optFinal(0);
             JCExpression type = unannotatedType(false);
 
             JCPattern pattern = parsePattern(patternPos, mods, type, false, false);
 
-            if (pattern.getTag() != RECORDPATTERN) {
-                log.error(token.pos, Errors.NotADeconstructionPatternForMatchStatement(pattern.toString()));
+            accept(EQ);
+            JCExpression expr = parseExpression();
+            accept(SEMI);
 
-                return List.of(toP(F.at(pos).Exec(F.at(patternPos).Erroneous())));
-            } else {
-                accept(EQ);
-
-                JCExpression expr = parseExpression();
-
-                accept(SEMI);
-
-                return List.of(toP(F.at(pos).Match(pattern, expr)));
-            }
+            return List.of(toP(F.at(pos).Match(pattern, expr)));
         } else {
             Token prevToken = token;
             JCExpression t = term(EXPR | TYPE);
@@ -3132,8 +3123,10 @@ public class JavacParser implements Parser {
         case FOR: {
             nextToken();
             accept(LPAREN);
-            if (S.token().kind == IDENTIFIER && S.token().name() == names.match) {
-                nextToken();
+
+            LocalVariableDeclOrRecordPattern initResult = analyzePatternAssignment();
+
+            if (initResult == LocalVariableDeclOrRecordPattern.RecordPattern) {
                 int patternPos = token.pos;
                 JCModifiers mods = optFinal(0);
                 JCExpression type = unannotatedType(false);
@@ -3285,22 +3278,13 @@ public class JavacParser implements Parser {
         }
     }
 
-    protected boolean isMatchStatementStart() {
-        if (token.kind == IDENTIFIER && token.name() == names.match && S.token(1).kind == IDENTIFIER) {
-            checkSourceLevel(Feature.MATCH_STATEMENTS);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    private enum ForInitResult {
+    public enum LocalVariableDeclOrRecordPattern {
         LocalVarDecl,
         RecordPattern
     }
 
     @SuppressWarnings("fallthrough")
-    ForInitResult analyzeForInit() {
+    public LocalVariableDeclOrRecordPattern analyzePatternAssignment() {
         boolean inType = false;
         boolean inSelectionAndParenthesis = false;
         int typeParameterPossibleStart = -1;
@@ -3311,11 +3295,14 @@ public class JavacParser implements Parser {
                     if (inType) break; // in qualified type
                 case COMMA:
                     typeParameterPossibleStart = lookahead;
+                    if (peekToken(lookahead, LPAREN)) {
+                        return LocalVariableDeclOrRecordPattern.LocalVarDecl;
+                    }
                     break;
                 case QUES:
                     // "?" only allowed in a type parameter position - otherwise it's an expression
                     if (typeParameterPossibleStart == lookahead - 1) break;
-                    else return ForInitResult.LocalVarDecl;
+                    else return LocalVariableDeclOrRecordPattern.LocalVarDecl;
                 case EXTENDS: case SUPER: case AMP:
                 case GTGTGT: case GTGT: case GT:
                 case FINAL: case ELLIPSIS:
@@ -3323,8 +3310,8 @@ public class JavacParser implements Parser {
                 case BYTE: case SHORT: case INT: case LONG: case FLOAT:
                 case DOUBLE: case BOOLEAN: case CHAR: case VOID:
                     if (peekToken(lookahead, IDENTIFIER)) {
-                        return inSelectionAndParenthesis ? ForInitResult.RecordPattern
-                                : ForInitResult.LocalVarDecl;
+                        return inSelectionAndParenthesis ? LocalVariableDeclOrRecordPattern.RecordPattern
+                                : LocalVariableDeclOrRecordPattern.LocalVarDecl;
                     }
                     break;
                 case LPAREN:
@@ -3332,17 +3319,22 @@ public class JavacParser implements Parser {
                         inSelectionAndParenthesis = true;
                         inType = false;
                     }
+
+                    if (peekToken(lookahead, LPAREN)) { // ID((byte) test)
+                        return LocalVariableDeclOrRecordPattern.LocalVarDecl;
+                    }
                     break;
                 case RPAREN:
-                    // a method call in the init part or a record pattern?
+                    // a method call or a record pattern?
                     if (inSelectionAndParenthesis) {
                         if (peekToken(lookahead, DOT)  ||
                                 peekToken(lookahead, SEMI) ||
                                 peekToken(lookahead, ARROW)) {
-                            return ForInitResult.LocalVarDecl;
+                            return LocalVariableDeclOrRecordPattern.LocalVarDecl;
                         }
-                        else if(peekToken(lookahead, COLON)) {
-                            return ForInitResult.RecordPattern;
+                        else if(peekToken(lookahead, COLON) ||  // in the init part of an enhanced for loop
+                                peekToken(lookahead, EQ)) {     // as a pattern assignment without a binder TODO
+                            return LocalVariableDeclOrRecordPattern.RecordPattern;
                         }
                         break;
                     }
@@ -3352,6 +3344,9 @@ public class JavacParser implements Parser {
                 case IDENTIFIER:
                     if (lookahead == 0) {
                         inType = true;
+                    }
+                    if (peekToken(lookahead, IDENTIFIER) && peekToken(lookahead + 1, LPAREN)) { // String m(int x) for JShell
+                        return LocalVariableDeclOrRecordPattern.LocalVarDecl;
                     }
                     break;
                 case MONKEYS_AT: {
@@ -3363,18 +3358,28 @@ public class JavacParser implements Parser {
                     }
                     break;
                 }
-                case LBRACKET:
+                case LBRACKET: // int[].class, A<int[], short[][]>::method, etc
                     if (peekToken(lookahead, RBRACKET)) {
-                        return inSelectionAndParenthesis ? ForInitResult.RecordPattern
-                                : ForInitResult.LocalVarDecl;
+                        int i = lookahead;
+                        while (peekToken(i, RBRACKET) || peekToken(i, LBRACKET)) {
+                            i+=1;
+
+                            if (!peekToken(i, IDENTIFIER) && (peekToken(i, DOT) || peekToken(i, COLCOL) || peekToken(i, COMMA))) {
+                                return LocalVariableDeclOrRecordPattern.LocalVarDecl;
+                            }
+                        }
+
+                        return inSelectionAndParenthesis ?
+                               LocalVariableDeclOrRecordPattern.RecordPattern :
+                               LocalVariableDeclOrRecordPattern.LocalVarDecl;
                     }
-                    return ForInitResult.LocalVarDecl;
+                    return LocalVariableDeclOrRecordPattern.LocalVarDecl;
                 case LT:
                     typeParameterPossibleStart = lookahead;
                     break;
                 default:
                     //this includes EOF
-                    return ForInitResult.LocalVarDecl;
+                    return LocalVariableDeclOrRecordPattern.LocalVarDecl;
             }
         }
     }
