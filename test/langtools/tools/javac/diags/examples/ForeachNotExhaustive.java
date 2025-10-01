@@ -29,7 +29,7 @@ import java.util.List;
 
 class ForeachNotExhaustive {
     void m(List<Object> points) {
-        for (match Point(var x, var y): points) {
+        for (Point(var x, var y): points) {
             System.out.println();
         }
     }

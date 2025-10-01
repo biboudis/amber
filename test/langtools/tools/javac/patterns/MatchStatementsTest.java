@@ -21,25 +21,25 @@ public class MatchStatementsTest {
 
     static void basicTest() {
         Point p = new Point(1, 2);
-        match Point(Integer a, Integer b) = p;
+        Point(Integer a, Integer b) = p;
         assertEquals(3, a + b);
 
         IPoint ip   = new Point(3, 4);
-        match Point(var c, var d) = ip;
+        Point(var c, var d) = ip;
         assertEquals(7, c + d);
 
         p = new Point(1, null);
-        match Point(var e, var f) = p;
+        Point(var e, var f) = p;
         assertEquals(null, f);
 
         PointP wp = new PointP(1, 2);
-        match PointP(int ap, double bp) = wp;
+        PointP(int ap, double bp) = wp;
         assertEquals(2.0d, bp);
     }
 
     static Integer raiseExceptionTest() {
         PointEx pointEx = new PointEx(1, 2);
-        match PointEx(Integer a_ex, Integer b_noex) = pointEx;
+        PointEx(Integer a_ex, Integer b_noex) = pointEx;
         return a_ex;
     }
 
