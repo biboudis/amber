@@ -3735,7 +3735,14 @@ public class Lower extends TreeTranslator {
                                  currentClass);
         }
         try {
-            if (tree.init != null) tree.init = translate(tree.init, tree.type);
+            if (tree.init != null) {
+                tree.init = translate(tree.init, tree.type);
+
+                if (types.isNR1S(tree.init.type, tree.vartype.type)){
+                    tree = make.VarDef(tree.sym, make.TypeCast(tree.vartype.type, tree.init)) ;
+                }
+            }
+
             result = tree;
         } finally {
             currentMethodSym = oldMethodSym;
