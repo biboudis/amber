@@ -2,21 +2,16 @@
  * @test /nodynamiccopyright/
  * @summary
  * @enablePreview
- * @compile MatchStatementsTest.java
- * @run main MatchStatementsTest
+ * @compile PatternAssignmentStatementTest.java
+ * @run main PatternAssignmentStatementTest
  */
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
-public class MatchStatementsTest {
+public class PatternAssignmentStatementTest {
     public static void main(String[] args) {
         basicTest();
-        assertMatchExceptionWithNested(MatchStatementsTest::raiseExceptionTest, TestPatternFailed.class);
+        assertMatchExceptionWithNested(PatternAssignmentStatementTest::raiseExceptionTest, TestPatternFailed.class);
     }
 
     static void basicTest() {

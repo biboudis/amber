@@ -2,18 +2,15 @@
  * @test /nodynamiccopyright/
  * @summary
  * @enablePreview
- * @compile ForEachPatterns.java
- * @run main ForEachPatterns
+ * @compile PatternAssignmentEnhancedForTest.java
+ * @run main PatternAssignmentEnhancedForTest
  */
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Target;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
-public class ForEachPatterns {
+public class PatternAssignmentEnhancedForTest {
     public static void main(String[] args) {
 
         List<Point>             in                   = List.of(new Point(1, 2), new Point(2, 3));
@@ -34,13 +31,13 @@ public class ForEachPatterns {
         assertEquals(8, iteratorEnhancedFor(in));
         assertEquals(8, arrayEnhancedFor(inArray));
         assertEquals(8, simpleDecostructionPatternWithAccesses(in));
-        assertEx(ForEachPatterns::simpleDecostructionPatternWithAccesses, null, NullPointerException.class);
-        assertMatchExceptionWithNested(ForEachPatterns::simpleDecostructionPatternWithAccesses, inWithNull, NullPointerException.class);
-        assertEx(ForEachPatterns::simpleDecostructionPatternWithAccesses, inWithNullComponent, NullPointerException.class);
-        assertMatchExceptionWithNested(ForEachPatterns::simpleDecostructionPatternException, inWithPointEx, TestPatternFailed.class);
-        assertEx(ForEachPatterns::simpleDecostructionPatternWithAccesses, (List<Point>) inRaw, ClassCastException.class);
+        assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, null, NullPointerException.class);
+        assertMatchExceptionWithNested(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, inWithNull, NullPointerException.class);
+        assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, inWithNullComponent, NullPointerException.class);
+        assertMatchExceptionWithNested(PatternAssignmentEnhancedForTest::simpleDecostructionPatternException, inWithPointEx, TestPatternFailed.class);
+        assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, (List<Point>) inRaw, ClassCastException.class);
         assertEquals(2, simpleDecostructionPatternNoComponentAccess(in));
-        assertMatchExceptionWithNested(ForEachPatterns::simpleDecostructionPatternNoComponentAccess, inWithNull, NullPointerException.class);
+        assertMatchExceptionWithNested(PatternAssignmentEnhancedForTest::simpleDecostructionPatternNoComponentAccess, inWithNull, NullPointerException.class);
         assertEquals(2, simpleDecostructionPatternNoComponentAccess(inWithNullComponent));
         assertEquals(8, varAndConcrete(in));
         assertEquals(3, returnFromEnhancedFor(in));

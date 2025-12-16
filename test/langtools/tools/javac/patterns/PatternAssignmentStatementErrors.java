@@ -2,12 +2,10 @@
  * @test /nodynamiccopyright/
  * @summary
  * @enablePreview
- * @compile/fail/ref=MatchStatementsErrors.out -XDrawDiagnostics -XDshould-stop.at=FLOW MatchStatementsErrors.java
+ * @compile/fail/ref=PatternAssignmentStatementErrors.out -XDrawDiagnostics -XDshould-stop.at=FLOW PatternAssignmentStatementErrors.java
  */
 
-import java.util.List;
-
-public class MatchStatementsErrors {
+public class PatternAssignmentStatementErrors {
 
     static void exhaustivity_error1(Object point) {
         Point(var x, var y) = point;

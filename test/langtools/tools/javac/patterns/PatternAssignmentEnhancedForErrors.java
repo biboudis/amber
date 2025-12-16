@@ -2,11 +2,11 @@
  * @test /nodynamiccopyright/
  * @summary
  * @enablePreview
- * @compile/fail/ref=ForEachPatternsErrors.out -XDrawDiagnostics -XDshould-stop.at=FLOW ForEachPatternsErrors.java
+ * @compile/fail/ref=PatternAssignmentEnhancedForErrors.out -XDrawDiagnostics -XDshould-stop.at=FLOW PatternAssignmentEnhancedForErrors.java
  */
 import java.util.List;
 
-public class ForEachPatternsErrors {
+public class PatternAssignmentEnhancedForErrors {
 
     static void exhaustivity_error1(List<Object> points) {
         for (Point(var x, var y): points) {

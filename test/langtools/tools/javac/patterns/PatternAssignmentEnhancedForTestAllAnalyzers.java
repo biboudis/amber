@@ -2,9 +2,9 @@
  * @test /nodynamiccopyright/
  * @summary
  * @enablePreview
- * @compile -XDfind=all ForEachTestAllAnalyzers.java
+ * @compile -XDfind=all PatternAssignmentEnhancedForTestAllAnalyzers.java
  */
-public class ForEachTestAllAnalyzers {
+public class PatternAssignmentEnhancedForTestAllAnalyzers {
     private void test(Iterable<? extends R> l) {
         for (R(Object a) : l) { }
     }
