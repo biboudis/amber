@@ -32,12 +32,12 @@ public class PatternAssignmentEnhancedForTest {
         assertEquals(8, arrayEnhancedFor(inArray));
         assertEquals(8, simpleDecostructionPatternWithAccesses(in));
         assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, null, NullPointerException.class);
-        assertMatchExceptionWithNested(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, inWithNull, NullPointerException.class);
+        assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, inWithNull, NullPointerException.class);
         assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, inWithNullComponent, NullPointerException.class);
         assertMatchExceptionWithNested(PatternAssignmentEnhancedForTest::simpleDecostructionPatternException, inWithPointEx, TestPatternFailed.class);
         assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternWithAccesses, (List<Point>) inRaw, ClassCastException.class);
         assertEquals(2, simpleDecostructionPatternNoComponentAccess(in));
-        assertMatchExceptionWithNested(PatternAssignmentEnhancedForTest::simpleDecostructionPatternNoComponentAccess, inWithNull, NullPointerException.class);
+        assertEx(PatternAssignmentEnhancedForTest::simpleDecostructionPatternNoComponentAccess, inWithNull, NullPointerException.class);
         assertEquals(2, simpleDecostructionPatternNoComponentAccess(inWithNullComponent));
         assertEquals(8, varAndConcrete(in));
         assertEquals(3, returnFromEnhancedFor(in));

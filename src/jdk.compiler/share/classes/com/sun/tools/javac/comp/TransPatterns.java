@@ -1170,6 +1170,7 @@ public class TransPatterns extends TreeTranslator {
          * (where <pattern> is a record pattern) is translated to:
          *
          * <pre>{@code
+         *     if (<expression> == null) throw new NullPointerException();
          *     if (!(<expression> instanceof(<pattern>)) {
          *         throw new MatchException(null, null);
          *     }
@@ -1178,21 +1179,39 @@ public class TransPatterns extends TreeTranslator {
          */
         bindingContext = new BasicBindingContext();
         try {
+            JCExpression expr = translate(tree.expr);
+
+            // synthetic temp to hold RHS
+            VarSymbol letBoundCandidate = new VarSymbol(Flags.FINAL | Flags.SYNTHETIC,
+                    names.fromString("match" + tree.pos + target.syntheticNameChar() + "temp"),
+                    expr.type,
+                    currentMethodSym);
+            JCStatement letBoundCandidateRef =
+                    make.at(tree.pos).VarDef(letBoundCandidate, expr).setType(expr.type);
+
+            // npe logic
+            JCIf ifNPEstatement = make.If(makeBinary(Tag.EQ, make.Ident(letBoundCandidate).setType(expr.type), makeNull()).setType(syms.booleanType),
+                    make.Throw(makeNewClass(syms.nullPointerExceptionType, List.of(makeNull()))),
+                    null);
+
+            // match statement logic
             List<JCExpression> nestedNPEParams = List.of(makeNull());
             JCNewClass nestedNPE = makeNewClass(syms.nullPointerExceptionType, nestedNPEParams);
 
             List<JCExpression> matchExParams = List.of(makeNull(), nestedNPE);
             JCTree.JCThrow thr = make.Throw(makeNewClass(syms.matchExceptionType, matchExParams));
 
-            JCExpression expr = translate(tree.expr);
-
-            JCInstanceOf instanceOfTree = make.TypeTest(expr, tree.pattern);
+            JCInstanceOf instanceOfTree = make.TypeTest(make.Ident(letBoundCandidate).setType(expr.type), tree.pattern);
             tree.type = syms.booleanType;
 
             JCIf ifNode = make.If(makeUnary(Tag.NOT,
                     translate(instanceOfTree)).setType(syms.booleanType), thr, null);
 
-            result = bindingContext.decorateStatement(ifNode);
+            // concatenate all
+            result = make.Block(0,
+                    List.of(letBoundCandidateRef,
+                            ifNPEstatement,
+                            bindingContext.decorateStatement(ifNode)));
         } finally {
             bindingContext.pop();
         }
@@ -1217,7 +1236,6 @@ public class TransPatterns extends TreeTranslator {
                  *     for (<type-of-coll-item> N$temp : coll) {
                  *     switch (N$temp) {
                  *         case <pattern>: stmt;
-                 *         case null: throw new MatchException();
                  *     }
                  * }</pre>
                  *
@@ -1238,8 +1256,6 @@ public class TransPatterns extends TreeTranslator {
                 List<JCExpression> matchExParams = List.of(makeNull(), nestedNPE);
                 JCTree.JCThrow thr = make.Throw(makeNewClass(syms.matchExceptionType, matchExParams));
 
-                JCCase caseNull = make.Case(JCCase.STATEMENT, List.of(make.ConstantCaseLabel(makeNull())), null, List.of(thr), null);
-
                 JCCase casePattern = make.Case(CaseTree.CaseKind.STATEMENT,
                         List.of(make.PatternCaseLabel(jcRecordPattern)),
                         null,
@@ -1248,7 +1264,7 @@ public class TransPatterns extends TreeTranslator {
 
                 JCSwitch switchBody =
                         make.Switch(make.Ident(currentValue).setType(selectorType),
-                                List.of(caseNull, casePattern));
+                                List.of(casePattern));
 
                 switchBody.patternSwitch = true;
 
